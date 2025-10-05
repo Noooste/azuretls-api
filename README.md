@@ -1,6 +1,6 @@
-# AzureTLS Server
+# AzureTLS API
 
-The AzureTLS Server provides HTTP/REST and WebSocket APIs for making HTTP requests through the AzureTLS client library. This allows you to use AzureTLS functionality from any programming language that can make HTTP requests or connect to WebSockets.
+The AzureTLS API provides HTTP/REST and WebSocket APIs for making HTTP requests through the AzureTLS client library. This allows you to use AzureTLS functionality from any programming language that can make HTTP requests or connect to WebSockets.
 
 ## Quick Start
 
