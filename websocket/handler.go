@@ -104,6 +104,11 @@ func (h *WSHandler) handleRequestMessage(conn *WSConnection, message *WSMessage)
 
 	serverResp := h.controller.ExecuteRequest(conn.SessionID(), &serverReq)
 
+	// If the response contains an error, send it as an error message
+	if serverResp.Error != "" {
+		return conn.SendError(message.ID, serverResp.Error)
+	}
+
 	return conn.SendResponse(message.ID, serverResp)
 }
 

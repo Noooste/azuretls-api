@@ -3,8 +3,8 @@ package test_test
 import (
 	"encoding/json"
 	"fmt"
+	"net"
 	"net/http"
-	"net/http/httptest"
 	"strings"
 	"sync"
 	"testing"
@@ -20,7 +20,9 @@ import (
 
 // WebSocketTestServer creates a test server with WebSocket support
 type WebSocketTestServer struct {
-	*httptest.Server
+	URL            string
+	listener       net.Listener
+	httpServer     *http.Server
 	sessionManager common.SessionManager
 }
 
@@ -32,46 +34,77 @@ func NewWebSocketTestServer() *WebSocketTestServer {
 	server := &TestAPIServer{sessionManager: sessionManager}
 	fhttpRoutes := rest.SetupRoutes(server)
 
-	// Convert fhttp.Handler to net/http.Handler
-	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Create an fhttp request from the standard request
-		fhttpReq := &fhttp.Request{
-			Method:           r.Method,
-			URL:              r.URL,
-			Proto:            r.Proto,
-			ProtoMajor:       r.ProtoMajor,
-			ProtoMinor:       r.ProtoMinor,
-			Header:           fhttp.Header(r.Header),
-			Body:             r.Body,
-			ContentLength:    r.ContentLength,
-			TransferEncoding: r.TransferEncoding,
-			Close:            r.Close,
-			Host:             r.Host,
-			Form:             r.Form,
-			PostForm:         r.PostForm,
-			RemoteAddr:       r.RemoteAddr,
-			RequestURI:       r.RequestURI,
-		}
+	// Convert fhttp.Handler to net/http.Handler using a compatibility wrapper
+	handler := &fhttpHandlerAdapter{handler: fhttpRoutes}
 
-		// Create an fhttp ResponseWriter wrapper
-		fhttpW := &fhttpResponseWriter{ResponseWriter: w}
+	// Create a listener on a random port
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		panic(fmt.Sprintf("failed to create listener: %v", err))
+	}
 
-		fhttpRoutes.ServeHTTP(fhttpW, fhttpReq)
-	})
+	httpServer := &http.Server{
+		Handler: handler,
+	}
 
-	httpServer := httptest.NewServer(handler)
-
-	return &WebSocketTestServer{
-		Server:         httpServer,
+	testServer := &WebSocketTestServer{
+		URL:            "http://" + listener.Addr().String(),
+		listener:       listener,
+		httpServer:     httpServer,
 		sessionManager: sessionManager,
+	}
+
+	// Start the server in a goroutine
+	go func() {
+		_ = httpServer.Serve(listener)
+	}()
+
+	// Give the server a moment to start
+	time.Sleep(50 * time.Millisecond)
+
+	return testServer
+}
+
+func (s *WebSocketTestServer) Close() {
+	if s.httpServer != nil {
+		_ = s.httpServer.Close()
+	}
+	if s.listener != nil {
+		_ = s.listener.Close()
 	}
 }
 
-/*
-CreateSessionWithConfig(sessionID string, config *SessionConfig) (*azuretls.Session, error)
-ListSessions() []string
-CleanupSessions() error
-*/
+// fhttpHandlerAdapter adapts an fhttp.Handler to work as a net/http.Handler
+// while preserving the underlying ResponseWriter's capabilities (like Hijacker)
+type fhttpHandlerAdapter struct {
+	handler fhttp.Handler
+}
+
+func (a *fhttpHandlerAdapter) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	// Create an fhttp request from the standard request
+	fhttpReq := &fhttp.Request{
+		Method:           r.Method,
+		URL:              r.URL,
+		Proto:            r.Proto,
+		ProtoMajor:       r.ProtoMajor,
+		ProtoMinor:       r.ProtoMinor,
+		Header:           fhttp.Header(r.Header),
+		Body:             r.Body,
+		ContentLength:    r.ContentLength,
+		TransferEncoding: r.TransferEncoding,
+		Close:            r.Close,
+		Host:             r.Host,
+		Form:             r.Form,
+		PostForm:         r.PostForm,
+		RemoteAddr:       r.RemoteAddr,
+		RequestURI:       r.RequestURI,
+	}
+
+	// Create an fhttp ResponseWriter wrapper that preserves capabilities
+	httpW := &fhttpResponseWriter{ResponseWriter: w}
+
+	a.handler.ServeHTTP(httpW, fhttpReq)
+}
 
 // WebSocketTestClient wraps websocket.Conn for testing
 type WebSocketTestClient struct {
@@ -744,12 +777,13 @@ func TestWebSocketInvalidJSON(t *testing.T) {
 
 	sessionID := createWebSocketSession(t, client)
 
-	// Send invalid JSON for JA3
-	invalidPayload := "invalid json string"
+	// Send invalid JSON for JA3 - valid JSON but wrong structure
+	// The handler expects {ja3: string, navigator: string} but we send an array
+	invalidPayload := json.RawMessage(`["not", "an", "object"]`)
 	message := internal_websocket.WSMessage{
 		Type:    internal_websocket.ApplyJA3Msg,
 		ID:      "test-invalid-json",
-		Payload: json.RawMessage(invalidPayload),
+		Payload: invalidPayload,
 	}
 
 	client.conn.SetWriteDeadline(time.Now().Add(5 * time.Second))

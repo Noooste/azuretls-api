@@ -7,7 +7,7 @@ The AzureTLS Server provides HTTP/REST and WebSocket APIs for making HTTP reques
 ### 1. Install
 
 ```bash
-go install github.com/Noooste/azuretls-api@latest
+go install github.com/Noooste/azuretls-api/cmd/azuretls@latest
 ```
 
 ### 2. Start the Server

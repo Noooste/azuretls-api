@@ -1,12 +1,14 @@
 package rest
 
 import (
+	"bufio"
 	"context"
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
 	"log"
 	mathRand "math/rand"
+	"net"
 	"runtime/debug"
 	"sync"
 	"time"
@@ -128,6 +130,14 @@ func (rw *responseWriter) WriteHeader(code int) {
 	defer rw.mu.Unlock()
 	rw.statusCode = code
 	rw.ResponseWriter.WriteHeader(code)
+}
+
+// Hijack implements http.Hijacker to support WebSocket upgrades
+func (rw *responseWriter) Hijack() (net.Conn, *bufio.ReadWriter, error) {
+	if hijacker, ok := rw.ResponseWriter.(http.Hijacker); ok {
+		return hijacker.Hijack()
+	}
+	return nil, nil, fmt.Errorf("responseWriter does not implement http.Hijacker")
 }
 
 func generateRequestID() string {
