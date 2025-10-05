@@ -14,6 +14,8 @@ import (
 	"time"
 
 	"net/http"
+
+	"github.com/Noooste/azuretls-api/internal/common"
 )
 
 type contextKey string
@@ -86,7 +88,7 @@ func LoggingMiddleware(next http.Handler) http.Handler {
 		next.ServeHTTP(wrapper, r)
 
 		duration := time.Since(start)
-		log.Printf("[%s] %s %s - %d - %v",
+		common.LogDebug("[%s] %s %s - %d - %v",
 			requestID, r.Method, r.URL.Path, wrapper.statusCode, duration)
 	})
 }

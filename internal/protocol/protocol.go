@@ -2,6 +2,7 @@ package protocol
 
 import (
 	"errors"
+	"io"
 	"strings"
 
 	"github.com/Noooste/azuretls-api/internal/protocol/json"
@@ -13,12 +14,12 @@ var (
 )
 
 type MessageEncoder interface {
-	Encode(v any) ([]byte, error)
-	Decode(data []byte, v any) error
+	Encode(w io.Writer, v any) error
+	Decode(r io.Reader, v any) error
 	ContentType() string
 }
 
-func DetectProtocol(contentType string, data []byte) (MessageEncoder, error) {
+func DetectProtocol(contentType string) (MessageEncoder, error) {
 	contentType = strings.ToLower(strings.TrimSpace(contentType))
 
 	if contentType == "" {

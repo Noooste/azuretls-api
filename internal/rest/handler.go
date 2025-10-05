@@ -25,12 +25,14 @@ func (h *Handler) CreateSession(w http.ResponseWriter, r *http.Request) {
 	var config common.SessionConfig
 	encoder, err := common.ParseRequestBody(r.Body, r.Header.Get("Content-Type"), &config)
 	if err != nil {
+		common.LogError("CreateSession: Failed to parse request body: %v", err)
 		h.writer.WriteErrorResponse(w, err.Error(), http.StatusBadRequest, nil)
 		return
 	}
 
 	sessionID, _, err := h.controller.CreateSession(&config)
 	if err != nil {
+		common.LogError("CreateSession: Failed to create session: %v", err)
 		h.writer.WriteErrorResponse(w, err.Error(), http.StatusInternalServerError, encoder)
 		return
 	}
@@ -48,6 +50,7 @@ func (h *Handler) DeleteSession(w http.ResponseWriter, r *http.Request) {
 	sessionID := vars["id"]
 
 	if err := h.controller.DeleteSession(sessionID); err != nil {
+		common.LogError("DeleteSession: Failed to delete session %s: %v", sessionID, err)
 		h.writer.WriteErrorResponse(w, err.Error(), http.StatusNotFound, nil)
 		return
 	}
@@ -62,6 +65,7 @@ func (h *Handler) SessionRequest(w http.ResponseWriter, r *http.Request) {
 	var serverReq common.ServerRequest
 	encoder, err := common.ParseRequestBody(r.Body, r.Header.Get("Content-Type"), &serverReq)
 	if err != nil {
+		common.LogError("SessionRequest: Failed to parse request body for session %s: %v", sessionID, err)
 		h.writer.WriteErrorResponse(w, err.Error(), http.StatusBadRequest, nil)
 		return
 	}
@@ -71,6 +75,8 @@ func (h *Handler) SessionRequest(w http.ResponseWriter, r *http.Request) {
 	statusCode := http.StatusOK
 	if serverResp.Error != "" {
 		statusCode = http.StatusInternalServerError
+		common.LogError("SessionRequest: Request failed for session %s: %s (URL: %s, Method: %s)",
+			sessionID, serverResp.Error, serverReq.URL, serverReq.Method)
 	}
 
 	h.writer.WriteResponse(w, serverResp, statusCode, encoder)
@@ -80,6 +86,7 @@ func (h *Handler) StatelessRequest(w http.ResponseWriter, r *http.Request) {
 	var serverReq common.ServerRequest
 	encoder, err := common.ParseRequestBody(r.Body, r.Header.Get("Content-Type"), &serverReq)
 	if err != nil {
+		common.LogError("StatelessRequest: Failed to parse request body: %v", err)
 		h.writer.WriteErrorResponse(w, err.Error(), http.StatusBadRequest, nil)
 		return
 	}
@@ -89,6 +96,8 @@ func (h *Handler) StatelessRequest(w http.ResponseWriter, r *http.Request) {
 	statusCode := http.StatusOK
 	if serverResp.Error != "" {
 		statusCode = http.StatusInternalServerError
+		common.LogError("StatelessRequest: Request failed: %s (URL: %s, Method: %s)",
+			serverResp.Error, serverReq.URL, serverReq.Method)
 	}
 
 	h.writer.WriteResponse(w, serverResp, statusCode, encoder)
@@ -112,11 +121,13 @@ func (h *Handler) ApplyJA3(w http.ResponseWriter, r *http.Request) {
 
 	_, err := common.ParseRequestBody(r.Body, r.Header.Get("Content-Type"), &payload)
 	if err != nil {
+		common.LogError("ApplyJA3: Failed to parse request body for session %s: %v", sessionID, err)
 		h.writer.WriteErrorResponse(w, err.Error(), http.StatusBadRequest, nil)
 		return
 	}
 
 	if err := h.controller.ApplyJA3(sessionID, payload.JA3, payload.Navigator); err != nil {
+		common.LogError("ApplyJA3: Failed to apply JA3 for session %s: %v", sessionID, err)
 		h.writer.WriteErrorResponse(w, err.Error(), http.StatusInternalServerError, nil)
 		return
 	}
@@ -134,11 +145,13 @@ func (h *Handler) ApplyHTTP2(w http.ResponseWriter, r *http.Request) {
 
 	_, err := common.ParseRequestBody(r.Body, r.Header.Get("Content-Type"), &payload)
 	if err != nil {
+		common.LogError("ApplyHTTP2: Failed to parse request body for session %s: %v", sessionID, err)
 		h.writer.WriteErrorResponse(w, err.Error(), http.StatusBadRequest, nil)
 		return
 	}
 
 	if err := h.controller.ApplyHTTP2(sessionID, payload.Fingerprint); err != nil {
+		common.LogError("ApplyHTTP2: Failed to apply HTTP2 fingerprint for session %s: %v", sessionID, err)
 		h.writer.WriteErrorResponse(w, err.Error(), http.StatusInternalServerError, nil)
 		return
 	}
@@ -156,11 +169,13 @@ func (h *Handler) ApplyHTTP3(w http.ResponseWriter, r *http.Request) {
 
 	_, err := common.ParseRequestBody(r.Body, r.Header.Get("Content-Type"), &payload)
 	if err != nil {
+		common.LogError("ApplyHTTP3: Failed to parse request body for session %s: %v", sessionID, err)
 		h.writer.WriteErrorResponse(w, err.Error(), http.StatusBadRequest, nil)
 		return
 	}
 
 	if err := h.controller.ApplyHTTP3(sessionID, payload.Fingerprint); err != nil {
+		common.LogError("ApplyHTTP3: Failed to apply HTTP3 fingerprint for session %s: %v", sessionID, err)
 		h.writer.WriteErrorResponse(w, err.Error(), http.StatusInternalServerError, nil)
 		return
 	}
@@ -180,11 +195,13 @@ func (h *Handler) ManageProxy(w http.ResponseWriter, r *http.Request) {
 
 		_, err := common.ParseRequestBody(r.Body, r.Header.Get("Content-Type"), &payload)
 		if err != nil {
+			common.LogError("ManageProxy: Failed to parse request body for session %s: %v", sessionID, err)
 			h.writer.WriteErrorResponse(w, err.Error(), http.StatusBadRequest, nil)
 			return
 		}
 
 		if err := h.controller.SetProxy(sessionID, payload.Proxy); err != nil {
+			common.LogError("ManageProxy: Failed to set proxy for session %s: %v", sessionID, err)
 			h.writer.WriteErrorResponse(w, err.Error(), http.StatusInternalServerError, nil)
 			return
 		}
@@ -193,6 +210,7 @@ func (h *Handler) ManageProxy(w http.ResponseWriter, r *http.Request) {
 
 	case http.MethodDelete:
 		if err := h.controller.ClearProxy(sessionID); err != nil {
+			common.LogError("ManageProxy: Failed to clear proxy for session %s: %v", sessionID, err)
 			h.writer.WriteErrorResponse(w, err.Error(), http.StatusInternalServerError, nil)
 			return
 		}
@@ -200,6 +218,7 @@ func (h *Handler) ManageProxy(w http.ResponseWriter, r *http.Request) {
 		h.writer.WriteSuccessResponse(w)
 
 	default:
+		common.LogWarn("ManageProxy: Method not allowed for session %s: %s", sessionID, r.Method)
 		h.writer.WriteErrorResponse(w, "Method not allowed", http.StatusMethodNotAllowed, nil)
 	}
 }
@@ -217,11 +236,13 @@ func (h *Handler) ManagePins(w http.ResponseWriter, r *http.Request) {
 
 		_, err := common.ParseRequestBody(r.Body, r.Header.Get("Content-Type"), &payload)
 		if err != nil {
+			common.LogError("ManagePins: Failed to parse request body for session %s: %v", sessionID, err)
 			h.writer.WriteErrorResponse(w, err.Error(), http.StatusBadRequest, nil)
 			return
 		}
 
 		if err := h.controller.AddPins(sessionID, payload.URL, payload.Pins); err != nil {
+			common.LogError("ManagePins: Failed to add pins for session %s: %v", sessionID, err)
 			h.writer.WriteErrorResponse(w, err.Error(), http.StatusInternalServerError, nil)
 			return
 		}
@@ -235,11 +256,13 @@ func (h *Handler) ManagePins(w http.ResponseWriter, r *http.Request) {
 
 		_, err := common.ParseRequestBody(r.Body, r.Header.Get("Content-Type"), &payload)
 		if err != nil {
+			common.LogError("ManagePins: Failed to parse request body for session %s: %v", sessionID, err)
 			h.writer.WriteErrorResponse(w, err.Error(), http.StatusBadRequest, nil)
 			return
 		}
 
 		if err := h.controller.ClearPins(sessionID, payload.URL); err != nil {
+			common.LogError("ManagePins: Failed to clear pins for session %s: %v", sessionID, err)
 			h.writer.WriteErrorResponse(w, err.Error(), http.StatusInternalServerError, nil)
 			return
 		}
@@ -247,6 +270,7 @@ func (h *Handler) ManagePins(w http.ResponseWriter, r *http.Request) {
 		h.writer.WriteSuccessResponse(w)
 
 	default:
+		common.LogWarn("ManagePins: Method not allowed for session %s: %s", sessionID, r.Method)
 		h.writer.WriteErrorResponse(w, "Method not allowed", http.StatusMethodNotAllowed, nil)
 	}
 }
@@ -257,6 +281,7 @@ func (h *Handler) GetIP(w http.ResponseWriter, r *http.Request) {
 
 	ip, err := h.controller.GetIP(sessionID)
 	if err != nil {
+		common.LogError("GetIP: Failed to get IP for session %s: %v", sessionID, err)
 		h.writer.WriteErrorResponse(w, err.Error(), http.StatusInternalServerError, nil)
 		return
 	}

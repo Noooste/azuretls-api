@@ -132,6 +132,8 @@ func (c *SessionController) executeRequestWithSession(session *azuretls.Session,
 			return serverResp
 		}
 		azureReq.Body = bodyBytes
+	} else {
+		azureReq.Body = serverReq.Body
 	}
 
 	// Handle headers
@@ -140,10 +142,22 @@ func (c *SessionController) executeRequestWithSession(session *azuretls.Session,
 		for i, header := range serverReq.OrderedHeaders {
 			azureReq.OrderedHeaders[i] = header
 		}
-	} else if len(serverReq.Headers) > 0 {
+	} else if len(serverReq.Headers.Keys) > 0 {
 		azureReq.Header = make(map[string][]string)
-		for key, value := range serverReq.Headers {
-			azureReq.Header[key] = []string{value}
+		for _, value := range serverReq.Headers.Keys {
+			if value == "Keys" || value == "Values" {
+				continue
+			}
+
+			switch v := serverReq.Headers.Values[value].(type) {
+			case string:
+				azureReq.Header[value] = []string{v}
+			case []string:
+				azureReq.Header[value] = v
+			default:
+				serverResp.Error = fmt.Sprintf("Invalid header value type for key %s of type %T", value, v)
+				return serverResp
+			}
 		}
 	}
 

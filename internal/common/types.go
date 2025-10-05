@@ -3,18 +3,19 @@ package common
 import (
 	"time"
 
+	"github.com/Noooste/azuretls-api/internal/utils"
 	"github.com/Noooste/azuretls-client"
 )
 
 type ServerRequest struct {
-	ID             string            `json:"id"`
-	Method         string            `json:"method"`
-	URL            string            `json:"url"`
-	Headers        map[string]string `json:"headers,omitempty"`
-	OrderedHeaders [][]string        `json:"ordered_headers,omitempty"`
-	Body           []byte            `json:"body,omitempty"`
-	BodyB64        string            `json:"body_b64,omitempty"` // Base64 encoded binary body
-	Options        RequestOptions    `json:"options,omitempty"`
+	ID             string           `json:"id"`
+	Method         string           `json:"method"`
+	URL            string           `json:"url"`
+	Headers        utils.OrderedMap `json:"headers,omitempty"`
+	OrderedHeaders [][]string       `json:"ordered_headers,omitempty"`
+	Body           []byte           `json:"body,omitempty"`
+	BodyB64        string           `json:"body_b64,omitempty"` // Base64 encoded binary body
+	Options        RequestOptions   `json:"options,omitempty"`
 }
 
 type RequestOptions struct {

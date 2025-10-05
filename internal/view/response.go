@@ -3,7 +3,6 @@ package view
 import (
 	"encoding/json"
 	"fmt"
-
 	"net/http"
 
 	"github.com/Noooste/azuretls-api/internal/protocol"
@@ -21,15 +20,15 @@ func (rw *ResponseWriter) WriteResponse(w http.ResponseWriter, data any, statusC
 		encoder = protocol.GetJSONEncoder()
 	}
 
-	responseBytes, err := encoder.Encode(data)
-	if err != nil {
-		http.Error(w, fmt.Sprintf("Failed to encode response: %v", err), http.StatusInternalServerError)
-		return
-	}
-
 	w.Header().Set("Content-Type", encoder.ContentType())
 	w.WriteHeader(statusCode)
-	w.Write(responseBytes)
+
+	if err := encoder.Encode(w, data); err != nil {
+		// At this point, status code is already written, so we can't change it
+		// Just log the error
+		w.Write([]byte(fmt.Sprintf(`{"error":"Failed to encode response: %v"}`, err)))
+		return
+	}
 }
 
 // WriteErrorResponse writes an error response

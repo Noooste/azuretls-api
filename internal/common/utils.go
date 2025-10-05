@@ -83,20 +83,17 @@ func GenerateSessionID() string {
 
 // ParseRequestBody reads and parses request body with protocol detection
 func ParseRequestBody(body io.Reader, contentType string, target any) (protocol.MessageEncoder, error) {
-	bodyBytes, err := io.ReadAll(body)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read request body: %w", err)
-	}
-
-	encoder, err := protocol.DetectProtocol(contentType, bodyBytes)
+	encoder, err := protocol.DetectProtocol(contentType)
 	if err != nil {
 		return nil, fmt.Errorf("unsupported media type: %w", err)
 	}
 
-	if len(bodyBytes) > 0 {
-		if err = encoder.Decode(bodyBytes, target); err != nil {
-			return encoder, fmt.Errorf("invalid request body: %w", err)
+	if err = encoder.Decode(body, target); err != nil {
+		// Check if it's an EOF error, which means empty body
+		if err == io.EOF {
+			return encoder, nil
 		}
+		return encoder, fmt.Errorf("invalid request body: %w", err)
 	}
 
 	return encoder, nil

@@ -1,8 +1,7 @@
 package websocket
 
 import (
-	"log"
-
+	"bytes"
 	http "net/http"
 
 	"github.com/Noooste/azuretls-api/internal/common"
@@ -42,7 +41,7 @@ func NewWSHandler(server common.Server) *WSHandler {
 func (h *WSHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	conn, err := h.upgrader.Upgrade(w, r, nil)
 	if err != nil {
-		log.Printf("WebSocket upgrade error: %v", err)
+		common.LogError("WebSocket upgrade error: %v", err)
 		return
 	}
 
@@ -89,13 +88,15 @@ func (h *WSHandler) handleMessage(conn *WSConnection, message *WSMessage) error 
 	case HealthMsg:
 		return h.handleHealth(conn, message)
 	default:
+		common.LogWarn("WebSocket: Unknown message type: %s", message.Type)
 		return conn.SendError(message.ID, "Unknown message type")
 	}
 }
 
 func (h *WSHandler) handleRequestMessage(conn *WSConnection, message *WSMessage) error {
 	var serverReq common.ServerRequest
-	if err := h.jsonEncoder.Decode(message.Payload, &serverReq); err != nil {
+	if err := h.jsonEncoder.Decode(bytes.NewReader(message.Payload), &serverReq); err != nil {
+		common.LogError("WebSocket handleRequestMessage: Invalid request payload for session %s: %v", conn.SessionID(), err)
 		return conn.SendError(message.ID, "Invalid request payload: "+err.Error())
 	}
 
@@ -107,6 +108,8 @@ func (h *WSHandler) handleRequestMessage(conn *WSConnection, message *WSMessage)
 
 	// If the response contains an error, send it as an error message
 	if serverResp.Error != "" {
+		common.LogError("WebSocket handleRequestMessage: Request failed for session %s: %s (URL: %s, Method: %s)",
+			conn.SessionID(), serverResp.Error, serverReq.URL, serverReq.Method)
 		return conn.SendError(message.ID, serverResp.Error)
 	}
 
@@ -132,13 +135,15 @@ func (h *WSHandler) CloseAllConnections() {
 func (h *WSHandler) handleCreateSession(conn *WSConnection, message *WSMessage) error {
 	var config common.SessionConfig
 	if len(message.Payload) > 0 {
-		if err := h.jsonEncoder.Decode(message.Payload, &config); err != nil {
+		if err := h.jsonEncoder.Decode(bytes.NewReader(message.Payload), &config); err != nil {
+			common.LogError("WebSocket handleCreateSession: Invalid session config: %v", err)
 			return conn.SendError(message.ID, "Invalid session config: "+err.Error())
 		}
 	}
 
 	sessionID, _, err := h.controller.CreateSession(&config)
 	if err != nil {
+		common.LogError("WebSocket handleCreateSession: Failed to create session: %v", err)
 		return conn.SendError(message.ID, "Failed to create session: "+err.Error())
 	}
 
@@ -157,10 +162,12 @@ func (h *WSHandler) handleCreateSession(conn *WSConnection, message *WSMessage) 
 func (h *WSHandler) handleDeleteSession(conn *WSConnection, message *WSMessage) error {
 	sessionID := conn.SessionID()
 	if sessionID == "" {
+		common.LogWarn("WebSocket handleDeleteSession: No active session")
 		return conn.SendError(message.ID, "No active session")
 	}
 
 	if err := h.controller.DeleteSession(sessionID); err != nil {
+		common.LogError("WebSocket handleDeleteSession: Failed to delete session %s: %v", sessionID, err)
 		return conn.SendError(message.ID, "Failed to delete session: "+err.Error())
 	}
 
@@ -174,6 +181,7 @@ func (h *WSHandler) handleDeleteSession(conn *WSConnection, message *WSMessage) 
 func (h *WSHandler) handleApplyJA3(conn *WSConnection, message *WSMessage) error {
 	sessionID := conn.SessionID()
 	if sessionID == "" {
+		common.LogWarn("WebSocket handleApplyJA3: No active session")
 		return conn.SendError(message.ID, "No active session")
 	}
 
@@ -182,11 +190,13 @@ func (h *WSHandler) handleApplyJA3(conn *WSConnection, message *WSMessage) error
 		Navigator string `json:"navigator,omitempty"`
 	}
 
-	if err := h.jsonEncoder.Decode(message.Payload, &payload); err != nil {
+	if err := h.jsonEncoder.Decode(bytes.NewReader(message.Payload), &payload); err != nil {
+		common.LogError("WebSocket handleApplyJA3: Invalid JA3 payload for session %s: %v", sessionID, err)
 		return conn.SendError(message.ID, "Invalid JA3 payload: "+err.Error())
 	}
 
 	if err := h.controller.ApplyJA3(sessionID, payload.JA3, payload.Navigator); err != nil {
+		common.LogError("WebSocket handleApplyJA3: Failed to apply JA3 for session %s: %v", sessionID, err)
 		return conn.SendError(message.ID, "Failed to apply JA3: "+err.Error())
 	}
 
@@ -196,6 +206,7 @@ func (h *WSHandler) handleApplyJA3(conn *WSConnection, message *WSMessage) error
 func (h *WSHandler) handleApplyHTTP2(conn *WSConnection, message *WSMessage) error {
 	sessionID := conn.SessionID()
 	if sessionID == "" {
+		common.LogWarn("WebSocket handleApplyHTTP2: No active session")
 		return conn.SendError(message.ID, "No active session")
 	}
 
@@ -203,11 +214,13 @@ func (h *WSHandler) handleApplyHTTP2(conn *WSConnection, message *WSMessage) err
 		Fingerprint string `json:"fingerprint"`
 	}
 
-	if err := h.jsonEncoder.Decode(message.Payload, &payload); err != nil {
+	if err := h.jsonEncoder.Decode(bytes.NewReader(message.Payload), &payload); err != nil {
+		common.LogError("WebSocket handleApplyHTTP2: Invalid HTTP2 payload for session %s: %v", sessionID, err)
 		return conn.SendError(message.ID, "Invalid HTTP2 payload: "+err.Error())
 	}
 
 	if err := h.controller.ApplyHTTP2(sessionID, payload.Fingerprint); err != nil {
+		common.LogError("WebSocket handleApplyHTTP2: Failed to apply HTTP2 for session %s: %v", sessionID, err)
 		return conn.SendError(message.ID, "Failed to apply HTTP2: "+err.Error())
 	}
 
@@ -217,6 +230,7 @@ func (h *WSHandler) handleApplyHTTP2(conn *WSConnection, message *WSMessage) err
 func (h *WSHandler) handleApplyHTTP3(conn *WSConnection, message *WSMessage) error {
 	sessionID := conn.SessionID()
 	if sessionID == "" {
+		common.LogWarn("WebSocket handleApplyHTTP3: No active session")
 		return conn.SendError(message.ID, "No active session")
 	}
 
@@ -224,11 +238,13 @@ func (h *WSHandler) handleApplyHTTP3(conn *WSConnection, message *WSMessage) err
 		Fingerprint string `json:"fingerprint"`
 	}
 
-	if err := h.jsonEncoder.Decode(message.Payload, &payload); err != nil {
+	if err := h.jsonEncoder.Decode(bytes.NewReader(message.Payload), &payload); err != nil {
+		common.LogError("WebSocket handleApplyHTTP3: Invalid HTTP3 payload for session %s: %v", sessionID, err)
 		return conn.SendError(message.ID, "Invalid HTTP3 payload: "+err.Error())
 	}
 
 	if err := h.controller.ApplyHTTP3(sessionID, payload.Fingerprint); err != nil {
+		common.LogError("WebSocket handleApplyHTTP3: Failed to apply HTTP3 for session %s: %v", sessionID, err)
 		return conn.SendError(message.ID, "Failed to apply HTTP3: "+err.Error())
 	}
 
@@ -238,6 +254,7 @@ func (h *WSHandler) handleApplyHTTP3(conn *WSConnection, message *WSMessage) err
 func (h *WSHandler) handleSetProxy(conn *WSConnection, message *WSMessage) error {
 	sessionID := conn.SessionID()
 	if sessionID == "" {
+		common.LogWarn("WebSocket handleSetProxy: No active session")
 		return conn.SendError(message.ID, "No active session")
 	}
 
@@ -245,11 +262,13 @@ func (h *WSHandler) handleSetProxy(conn *WSConnection, message *WSMessage) error
 		Proxy string `json:"proxy"`
 	}
 
-	if err := h.jsonEncoder.Decode(message.Payload, &payload); err != nil {
+	if err := h.jsonEncoder.Decode(bytes.NewReader(message.Payload), &payload); err != nil {
+		common.LogError("WebSocket handleSetProxy: Invalid proxy payload for session %s: %v", sessionID, err)
 		return conn.SendError(message.ID, "Invalid proxy payload: "+err.Error())
 	}
 
 	if err := h.controller.SetProxy(sessionID, payload.Proxy); err != nil {
+		common.LogError("WebSocket handleSetProxy: Failed to set proxy for session %s: %v", sessionID, err)
 		return conn.SendError(message.ID, "Failed to set proxy: "+err.Error())
 	}
 
@@ -259,10 +278,12 @@ func (h *WSHandler) handleSetProxy(conn *WSConnection, message *WSMessage) error
 func (h *WSHandler) handleClearProxy(conn *WSConnection, message *WSMessage) error {
 	sessionID := conn.SessionID()
 	if sessionID == "" {
+		common.LogWarn("WebSocket handleClearProxy: No active session")
 		return conn.SendError(message.ID, "No active session")
 	}
 
 	if err := h.controller.ClearProxy(sessionID); err != nil {
+		common.LogError("WebSocket handleClearProxy: Failed to clear proxy for session %s: %v", sessionID, err)
 		return conn.SendError(message.ID, "Failed to clear proxy: "+err.Error())
 	}
 
@@ -272,6 +293,7 @@ func (h *WSHandler) handleClearProxy(conn *WSConnection, message *WSMessage) err
 func (h *WSHandler) handleAddPins(conn *WSConnection, message *WSMessage) error {
 	sessionID := conn.SessionID()
 	if sessionID == "" {
+		common.LogWarn("WebSocket handleAddPins: No active session")
 		return conn.SendError(message.ID, "No active session")
 	}
 
@@ -280,11 +302,13 @@ func (h *WSHandler) handleAddPins(conn *WSConnection, message *WSMessage) error 
 		Pins []string `json:"pins"`
 	}
 
-	if err := h.jsonEncoder.Decode(message.Payload, &payload); err != nil {
+	if err := h.jsonEncoder.Decode(bytes.NewReader(message.Payload), &payload); err != nil {
+		common.LogError("WebSocket handleAddPins: Invalid pins payload for session %s: %v", sessionID, err)
 		return conn.SendError(message.ID, "Invalid pins payload: "+err.Error())
 	}
 
 	if err := h.controller.AddPins(sessionID, payload.URL, payload.Pins); err != nil {
+		common.LogError("WebSocket handleAddPins: Failed to add pins for session %s: %v", sessionID, err)
 		return conn.SendError(message.ID, "Failed to add pins: "+err.Error())
 	}
 
@@ -294,6 +318,7 @@ func (h *WSHandler) handleAddPins(conn *WSConnection, message *WSMessage) error 
 func (h *WSHandler) handleClearPins(conn *WSConnection, message *WSMessage) error {
 	sessionID := conn.SessionID()
 	if sessionID == "" {
+		common.LogWarn("WebSocket handleClearPins: No active session")
 		return conn.SendError(message.ID, "No active session")
 	}
 
@@ -301,11 +326,13 @@ func (h *WSHandler) handleClearPins(conn *WSConnection, message *WSMessage) erro
 		URL string `json:"url"`
 	}
 
-	if err := h.jsonEncoder.Decode(message.Payload, &payload); err != nil {
+	if err := h.jsonEncoder.Decode(bytes.NewReader(message.Payload), &payload); err != nil {
+		common.LogError("WebSocket handleClearPins: Invalid clear pins payload for session %s: %v", sessionID, err)
 		return conn.SendError(message.ID, "Invalid clear pins payload: "+err.Error())
 	}
 
 	if err := h.controller.ClearPins(sessionID, payload.URL); err != nil {
+		common.LogError("WebSocket handleClearPins: Failed to clear pins for session %s: %v", sessionID, err)
 		return conn.SendError(message.ID, "Failed to clear pins: "+err.Error())
 	}
 
@@ -315,11 +342,13 @@ func (h *WSHandler) handleClearPins(conn *WSConnection, message *WSMessage) erro
 func (h *WSHandler) handleGetIP(conn *WSConnection, message *WSMessage) error {
 	sessionID := conn.SessionID()
 	if sessionID == "" {
+		common.LogWarn("WebSocket handleGetIP: No active session")
 		return conn.SendError(message.ID, "No active session")
 	}
 
 	ip, err := h.controller.GetIP(sessionID)
 	if err != nil {
+		common.LogError("WebSocket handleGetIP: Failed to get IP for session %s: %v", sessionID, err)
 		return conn.SendError(message.ID, "Failed to get IP: "+err.Error())
 	}
 
