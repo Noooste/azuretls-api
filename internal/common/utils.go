@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Noooste/azuretls-api/protocol"
+	"github.com/Noooste/azuretls-api/internal/protocol"
 )
 
 type LogLevel int

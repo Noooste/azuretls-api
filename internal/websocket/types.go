@@ -5,7 +5,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/Noooste/websocket"
+	"github.com/gorilla/websocket"
 )
 
 type WSMessageType string

@@ -1,4 +1,4 @@
-package api
+package server
 
 import (
 	"context"
@@ -7,10 +7,10 @@ import (
 	"log"
 	"time"
 
-	"github.com/Noooste/fhttp"
+	"net/http"
 
-	"github.com/Noooste/azuretls-api/common"
-	"github.com/Noooste/azuretls-api/rest"
+	"github.com/Noooste/azuretls-api/internal/common"
+	"github.com/Noooste/azuretls-api/internal/rest"
 )
 
 type Server struct {

@@ -8,10 +8,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Noooste/azuretls-api/common"
-	"github.com/Noooste/azuretls-api/rest"
+	"github.com/Noooste/azuretls-api/internal/common"
+	"github.com/Noooste/azuretls-api/internal/rest"
 	"github.com/Noooste/azuretls-client"
-	fhttp "github.com/Noooste/fhttp"
 )
 
 // TestServer represents a mock server for testing
@@ -31,13 +30,13 @@ func NewTestServer() *TestServer {
 	// Convert fhttp.Handler to net/http.Handler
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Create an fhttp request from the standard request
-		fhttpReq := &fhttp.Request{
+		req := &http.Request{
 			Method:           r.Method,
 			URL:              r.URL,
 			Proto:            r.Proto,
 			ProtoMajor:       r.ProtoMajor,
 			ProtoMinor:       r.ProtoMinor,
-			Header:           fhttp.Header(r.Header),
+			Header:           r.Header,
 			Body:             r.Body,
 			ContentLength:    r.ContentLength,
 			TransferEncoding: r.TransferEncoding,
@@ -49,10 +48,7 @@ func NewTestServer() *TestServer {
 			RequestURI:       r.RequestURI,
 		}
 
-		// Create an fhttp ResponseWriter wrapper
-		fhttpW := &fhttpResponseWriter{ResponseWriter: w}
-
-		fhttpRoutes.ServeHTTP(fhttpW, fhttpReq)
+		fhttpRoutes.ServeHTTP(w, req)
 	})
 
 	httpServer := httptest.NewServer(handler)

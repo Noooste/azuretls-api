@@ -8,7 +8,8 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/Noooste/azuretls-api"
+	"github.com/Noooste/azuretls-api/internal/common"
+	"github.com/Noooste/azuretls-api/internal/server"
 )
 
 func main() {
@@ -23,7 +24,7 @@ func main() {
 	)
 	flag.Parse()
 
-	config := api.ServerConfig{
+	config := common.ServerConfig{
 		Host:                  *host,
 		Port:                  *port,
 		MaxSessions:           *maxSessions,
@@ -33,7 +34,7 @@ func main() {
 		LogLevel:              *logLevel,
 	}
 
-	server := api.NewServer(config)
+	srv := server.NewServer(config)
 
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
@@ -41,11 +42,11 @@ func main() {
 	go func() {
 		<-sigChan
 		log.Println("Received shutdown signal")
-		server.Stop()
+		srv.Stop()
 	}()
 
 	log.Printf("Starting AzureTLS server on %s:%d", *host, *port)
-	if err := server.Start(); err != nil {
+	if err := srv.Start(); err != nil {
 		log.Fatalf("Server failed to start: %v", err)
 	}
 

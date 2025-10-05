@@ -7,10 +7,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"net/http"
 	"time"
 
-	http "github.com/Noooste/fhttp"
-	"github.com/Noooste/websocket"
+	"github.com/gorilla/websocket"
 )
 
 const (

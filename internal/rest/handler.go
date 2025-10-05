@@ -1,10 +1,11 @@
 package rest
 
 import (
-	"github.com/Noooste/azuretls-api/common"
-	"github.com/Noooste/azuretls-api/controller"
-	"github.com/Noooste/azuretls-api/view"
-	http "github.com/Noooste/fhttp"
+	http "net/http"
+
+	"github.com/Noooste/azuretls-api/internal/common"
+	"github.com/Noooste/azuretls-api/internal/controller"
+	"github.com/Noooste/azuretls-api/internal/view"
 )
 
 type Handler struct {

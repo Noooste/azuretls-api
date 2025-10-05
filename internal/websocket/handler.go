@@ -3,11 +3,12 @@ package websocket
 import (
 	"log"
 
-	"github.com/Noooste/azuretls-api/common"
-	"github.com/Noooste/azuretls-api/controller"
-	"github.com/Noooste/azuretls-api/protocol"
-	http "github.com/Noooste/fhttp"
-	"github.com/Noooste/websocket"
+	http "net/http"
+
+	"github.com/Noooste/azuretls-api/internal/common"
+	"github.com/Noooste/azuretls-api/internal/controller"
+	"github.com/Noooste/azuretls-api/internal/protocol"
+	"github.com/gorilla/websocket"
 )
 
 type WSHandler struct {

@@ -3,10 +3,11 @@ package rest
 import (
 	"strings"
 
-	"github.com/Noooste/azuretls-api/websocket"
-	"github.com/Noooste/fhttp"
+	"net/http"
 
-	"github.com/Noooste/azuretls-api/common"
+	"github.com/Noooste/azuretls-api/internal/websocket"
+
+	"github.com/Noooste/azuretls-api/internal/common"
 )
 
 func SetupRoutes(server common.Server) http.Handler {

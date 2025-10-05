@@ -4,9 +4,9 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/Noooste/fhttp"
+	"net/http"
 
-	"github.com/Noooste/azuretls-api/protocol"
+	"github.com/Noooste/azuretls-api/internal/protocol"
 )
 
 type ResponseWriter struct{}

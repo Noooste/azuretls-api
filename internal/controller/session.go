@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/Noooste/azuretls-api/common"
+	"github.com/Noooste/azuretls-api/internal/common"
 	"github.com/Noooste/azuretls-client"
 )
 

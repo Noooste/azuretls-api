@@ -13,7 +13,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/Noooste/fhttp"
+	"net/http"
 )
 
 type contextKey string

@@ -10,12 +10,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Noooste/azuretls-api/common"
-	"github.com/Noooste/azuretls-api/rest"
-	internal_websocket "github.com/Noooste/azuretls-api/websocket"
+	fhttp "net/http"
+
+	"github.com/Noooste/azuretls-api/internal/common"
+	"github.com/Noooste/azuretls-api/internal/rest"
+	internal_websocket "github.com/Noooste/azuretls-api/internal/websocket"
 	"github.com/Noooste/azuretls-client"
-	fhttp "github.com/Noooste/fhttp"
-	"github.com/Noooste/websocket"
+	"github.com/gorilla/websocket"
 )
 
 // WebSocketTestServer creates a test server with WebSocket support
@@ -100,10 +101,7 @@ func (a *fhttpHandlerAdapter) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 		RequestURI:       r.RequestURI,
 	}
 
-	// Create an fhttp ResponseWriter wrapper that preserves capabilities
-	httpW := &fhttpResponseWriter{ResponseWriter: w}
-
-	a.handler.ServeHTTP(httpW, fhttpReq)
+	a.handler.ServeHTTP(w, fhttpReq)
 }
 
 // WebSocketTestClient wraps websocket.Conn for testing
@@ -121,7 +119,7 @@ func NewWebSocketTestClient(serverURL string) (*WebSocketTestClient, error) {
 		HandshakeTimeout: 5 * time.Second,
 	}
 
-	conn, _, err := dialer.Dial(wsURL, nil, nil)
+	conn, _, err := dialer.Dial(wsURL, nil)
 	if err != nil {
 		return nil, err
 	}

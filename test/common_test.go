@@ -1,36 +1,12 @@
 package test_test
 
 import (
-	"bufio"
 	"fmt"
-	"net"
-	"net/http"
 	"net/url"
 
-	"github.com/Noooste/azuretls-api/common"
+	"github.com/Noooste/azuretls-api/internal/common"
 	"github.com/Noooste/azuretls-client"
-	fhttp "github.com/Noooste/fhttp"
 )
-
-// fhttpResponseWriter wraps http.ResponseWriter to implement fhttp.ResponseWriter
-type fhttpResponseWriter struct {
-	http.ResponseWriter
-}
-
-func (w *fhttpResponseWriter) Header() fhttp.Header {
-	return fhttp.Header(w.ResponseWriter.Header())
-}
-
-// Hijack implements http.Hijacker for WebSocket support
-func (w *fhttpResponseWriter) Hijack() (net.Conn, *bufio.ReadWriter, error) {
-	if hijacker, ok := w.ResponseWriter.(fhttp.Hijacker); ok {
-		return hijacker.Hijack()
-	}
-	return nil, nil, fmt.Errorf("response writer does not implement http.Hijacker")
-}
-
-// Ensure fhttpResponseWriter implements http.Hijacker
-var _ http.Hijacker = (*fhttpResponseWriter)(nil)
 
 type TestAPIServer struct {
 	sessionManager common.SessionManager

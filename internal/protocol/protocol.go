@@ -4,7 +4,7 @@ import (
 	"errors"
 	"strings"
 
-	"github.com/Noooste/azuretls-api/protocol/json"
+	"github.com/Noooste/azuretls-api/internal/protocol/json"
 )
 
 var (
