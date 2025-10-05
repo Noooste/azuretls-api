@@ -6,6 +6,7 @@ import (
 	"github.com/Noooste/azuretls-api/internal/common"
 	"github.com/Noooste/azuretls-api/internal/controller"
 	"github.com/Noooste/azuretls-api/internal/view"
+	"github.com/gorilla/mux"
 )
 
 type Handler struct {
@@ -21,11 +22,6 @@ func NewRESTHandler(server common.Server) *Handler {
 }
 
 func (h *Handler) CreateSession(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		h.writer.WriteErrorResponse(w, "Method not allowed", http.StatusMethodNotAllowed, nil)
-		return
-	}
-
 	var config common.SessionConfig
 	encoder, err := common.ParseRequestBody(r.Body, r.Header.Get("Content-Type"), &config)
 	if err != nil {
@@ -48,7 +44,9 @@ func (h *Handler) CreateSession(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) DeleteSession(w http.ResponseWriter, r *http.Request) {
-	sessionID := common.ExtractSessionIDFromPath(r.URL.Path, "")
+	vars := mux.Vars(r)
+	sessionID := vars["id"]
+
 	if err := h.controller.DeleteSession(sessionID); err != nil {
 		h.writer.WriteErrorResponse(w, err.Error(), http.StatusNotFound, nil)
 		return
@@ -58,14 +56,15 @@ func (h *Handler) DeleteSession(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) SessionRequest(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	sessionID := vars["id"]
+
 	var serverReq common.ServerRequest
 	encoder, err := common.ParseRequestBody(r.Body, r.Header.Get("Content-Type"), &serverReq)
 	if err != nil {
 		h.writer.WriteErrorResponse(w, err.Error(), http.StatusBadRequest, nil)
 		return
 	}
-
-	sessionID := common.ExtractSessionIDFromPath(r.URL.Path, "")
 
 	serverResp := h.controller.ExecuteRequest(sessionID, &serverReq)
 
@@ -103,7 +102,8 @@ func (h *Handler) Health(w http.ResponseWriter, r *http.Request) {
 // Advanced session management endpoints
 
 func (h *Handler) ApplyJA3(w http.ResponseWriter, r *http.Request) {
-	sessionID := common.ExtractSessionIDFromPath(r.URL.Path, "ja3")
+	vars := mux.Vars(r)
+	sessionID := vars["id"]
 
 	var payload struct {
 		JA3       string `json:"ja3"`
@@ -125,7 +125,8 @@ func (h *Handler) ApplyJA3(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) ApplyHTTP2(w http.ResponseWriter, r *http.Request) {
-	sessionID := common.ExtractSessionIDFromPath(r.URL.Path, "http2")
+	vars := mux.Vars(r)
+	sessionID := vars["id"]
 
 	var payload struct {
 		Fingerprint string `json:"fingerprint"`
@@ -146,7 +147,8 @@ func (h *Handler) ApplyHTTP2(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) ApplyHTTP3(w http.ResponseWriter, r *http.Request) {
-	sessionID := common.ExtractSessionIDFromPath(r.URL.Path, "http3")
+	vars := mux.Vars(r)
+	sessionID := vars["id"]
 
 	var payload struct {
 		Fingerprint string `json:"fingerprint"`
@@ -167,7 +169,8 @@ func (h *Handler) ApplyHTTP3(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) ManageProxy(w http.ResponseWriter, r *http.Request) {
-	sessionID := common.ExtractSessionIDFromPath(r.URL.Path, "proxy")
+	vars := mux.Vars(r)
+	sessionID := vars["id"]
 
 	switch r.Method {
 	case http.MethodPost:
@@ -202,7 +205,8 @@ func (h *Handler) ManageProxy(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) ManagePins(w http.ResponseWriter, r *http.Request) {
-	sessionID := common.ExtractSessionIDFromPath(r.URL.Path, "pins")
+	vars := mux.Vars(r)
+	sessionID := vars["id"]
 
 	switch r.Method {
 	case http.MethodPost:
@@ -248,7 +252,8 @@ func (h *Handler) ManagePins(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) GetIP(w http.ResponseWriter, r *http.Request) {
-	sessionID := common.ExtractSessionIDFromPath(r.URL.Path, "ip")
+	vars := mux.Vars(r)
+	sessionID := vars["id"]
 
 	ip, err := h.controller.GetIP(sessionID)
 	if err != nil {

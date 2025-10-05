@@ -4,6 +4,7 @@ go 1.25.0
 
 require (
 	github.com/Noooste/azuretls-client v1.12.6
+	github.com/gorilla/mux v1.8.1
 	github.com/gorilla/websocket v1.5.3
 )
 

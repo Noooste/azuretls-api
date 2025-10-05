@@ -1,33 +1,47 @@
 package rest
 
 import (
-	"strings"
-
 	"net/http"
 
-	"github.com/Noooste/azuretls-api/internal/websocket"
-
 	"github.com/Noooste/azuretls-api/internal/common"
+	"github.com/Noooste/azuretls-api/internal/websocket"
+	"github.com/gorilla/mux"
 )
 
 func SetupRoutes(server common.Server) http.Handler {
-	mux := http.NewServeMux()
+	r := mux.NewRouter()
 	handler := NewRESTHandler(server)
 	wsHandler := websocket.NewWSHandler(server)
 
-	mux.HandleFunc("/health", handler.Health)
-	mux.HandleFunc("/ws", wsHandler.ServeHTTP)
-	mux.HandleFunc("/api/v1/session/create", handler.CreateSession)
-	mux.HandleFunc("/api/v1/session/", sessionRouteHandler(handler))
-	mux.HandleFunc("/api/v1/request", handler.StatelessRequest)
+	// Health check
+	r.HandleFunc("/health", handler.Health).Methods(http.MethodGet)
+
+	// WebSocket endpoint
+	r.HandleFunc("/ws", wsHandler.ServeHTTP)
+
+	// Session management
+	r.HandleFunc("/api/v1/session/create", handler.CreateSession).Methods(http.MethodPost)
+	r.HandleFunc("/api/v1/session/{id}", handler.DeleteSession).Methods(http.MethodDelete)
+
+	// Session request
+	r.HandleFunc("/api/v1/session/{id}/request", handler.SessionRequest).Methods(http.MethodPost)
+
+	// Stateless request
+	r.HandleFunc("/api/v1/request", handler.StatelessRequest).Methods(http.MethodPost)
 
 	// Advanced session management endpoints
-	mux.HandleFunc("/api/v1/session/{id}/ja3", handler.ApplyJA3)
-	mux.HandleFunc("/api/v1/session/{id}/http2", handler.ApplyHTTP2)
-	mux.HandleFunc("/api/v1/session/{id}/http3", handler.ApplyHTTP3)
-	mux.HandleFunc("/api/v1/session/{id}/proxy", handler.ManageProxy)
-	mux.HandleFunc("/api/v1/session/{id}/pins", handler.ManagePins)
-	mux.HandleFunc("/api/v1/session/{id}/ip", handler.GetIP)
+	r.HandleFunc("/api/v1/session/{id}/ja3", handler.ApplyJA3).Methods(http.MethodPost)
+	r.HandleFunc("/api/v1/session/{id}/http2", handler.ApplyHTTP2).Methods(http.MethodPost)
+	r.HandleFunc("/api/v1/session/{id}/http3", handler.ApplyHTTP3).Methods(http.MethodPost)
+
+	// Proxy management
+	r.HandleFunc("/api/v1/session/{id}/proxy", handler.ManageProxy).Methods(http.MethodPost, http.MethodDelete)
+
+	// Pin management
+	r.HandleFunc("/api/v1/session/{id}/pins", handler.ManagePins).Methods(http.MethodPost, http.MethodDelete)
+
+	// Get IP
+	r.HandleFunc("/api/v1/session/{id}/ip", handler.GetIP).Methods(http.MethodGet)
 
 	config := server.GetConfig()
 	middleware := ChainMiddleware(
@@ -38,83 +52,5 @@ func SetupRoutes(server common.Server) http.Handler {
 		ConcurrentRequestLimiter(config.MaxConcurrentRequests),
 	)
 
-	return middleware(mux)
-}
-
-func sessionRouteHandler(handler *Handler) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		path := r.URL.Path
-
-		// Handle specific endpoints
-		if strings.HasSuffix(path, "/request") {
-			if r.Method != http.MethodPost {
-				http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-				return
-			}
-			handler.SessionRequest(w, r)
-			return
-		}
-
-		if strings.Contains(path, "/ja3") {
-			if r.Method != http.MethodPost {
-				http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-				return
-			}
-			handler.ApplyJA3(w, r)
-			return
-		}
-
-		if strings.Contains(path, "/http2") {
-			if r.Method != http.MethodPost {
-				http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-				return
-			}
-			handler.ApplyHTTP2(w, r)
-			return
-		}
-
-		if strings.Contains(path, "/http3") {
-			if r.Method != http.MethodPost {
-				http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-				return
-			}
-			handler.ApplyHTTP3(w, r)
-			return
-		}
-
-		if strings.Contains(path, "/proxy") {
-			handler.ManageProxy(w, r)
-			return
-		}
-
-		if strings.Contains(path, "/pins") {
-			handler.ManagePins(w, r)
-			return
-		}
-
-		if strings.Contains(path, "/ip") {
-			if r.Method != http.MethodGet {
-				http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-				return
-			}
-			handler.GetIP(w, r)
-			return
-		}
-
-		// Handle session deletion
-		sessionID := strings.TrimPrefix(path, "/api/v1/session/")
-		sessionID = strings.TrimSuffix(sessionID, "/")
-
-		if sessionID == "" {
-			http.Error(w, "Session ID required", http.StatusBadRequest)
-			return
-		}
-
-		switch r.Method {
-		case http.MethodDelete:
-			handler.DeleteSession(w, r)
-		default:
-			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		}
-	}
+	return middleware(r)
 }

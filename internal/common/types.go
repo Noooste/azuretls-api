@@ -37,6 +37,7 @@ type ServerResponse struct {
 	Status     string              `json:"status"`
 	Headers    map[string][]string `json:"headers"`
 	Body       string              `json:"body"`
+	BodyB64    string              `json:"body_b64"`
 	Cookies    []Cookie            `json:"cookies,omitempty"`
 	Error      string              `json:"error,omitempty"`
 	URL        string              `json:"url"`

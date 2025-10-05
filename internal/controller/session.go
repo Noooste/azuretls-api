@@ -3,6 +3,7 @@ package controller
 import (
 	"encoding/base64"
 	"fmt"
+	"net/http"
 	"time"
 
 	"github.com/Noooste/azuretls-api/internal/common"
@@ -163,7 +164,13 @@ func (c *SessionController) executeRequestWithSession(session *azuretls.Session,
 
 	// Handle response body
 	if resp.Body != nil {
-		serverResp.Body = base64.StdEncoding.EncodeToString(resp.Body)
+		if !common.IsBinaryContent(http.Header(resp.Header), resp.Body) {
+			serverResp.Body = string(resp.Body)
+			return serverResp
+		}
+
+		// For binary content, encode body as base64
+		serverResp.BodyB64 = base64.StdEncoding.EncodeToString(resp.Body)
 	}
 
 	if resp.Header != nil {

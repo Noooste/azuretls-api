@@ -8,6 +8,7 @@ import (
 	"io"
 	"log"
 	mathRand "math/rand"
+	"net/http"
 	"strings"
 	"time"
 
@@ -187,4 +188,37 @@ func (om *OrderedMap) UnmarshalJSON(data []byte) error {
 	}
 
 	return nil
+}
+
+func IsBinaryContent(contentType http.Header, body []byte) bool {
+	contentTypeHeader := contentType.Get("Content-Type")
+	if contentTypeHeader == "" {
+		return false
+	}
+
+	lowerContentType := strings.ToLower(contentTypeHeader)
+	if strings.Contains(lowerContentType, "application/octet-stream") ||
+		strings.Contains(lowerContentType, "application/pdf") ||
+		strings.Contains(lowerContentType, "image/") ||
+		strings.Contains(lowerContentType, "audio/") ||
+		strings.Contains(lowerContentType, "video/") {
+		return true
+	}
+
+	// check basic content type
+	if strings.Contains(lowerContentType, "text/") ||
+		strings.Contains(lowerContentType, "application/json") ||
+		strings.Contains(lowerContentType, "application/xml") ||
+		strings.Contains(lowerContentType, "application/javascript") ||
+		strings.Contains(lowerContentType, "application/x-www-form-urlencoded") {
+		return false
+	}
+
+	for _, b := range body {
+		if b < 32 && b != 9 && b != 10 && b != 13 {
+			return true
+		}
+	}
+
+	return false
 }
