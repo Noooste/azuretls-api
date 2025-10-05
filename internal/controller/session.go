@@ -4,6 +4,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"net/http"
+	"runtime/debug"
 	"time"
 
 	"github.com/Noooste/azuretls-api/internal/common"
@@ -113,7 +114,7 @@ func (c *SessionController) executeRequestWithSession(session *azuretls.Session,
 		ID: serverReq.ID,
 	}
 
-	if serverReq.Body != nil && serverReq.BodyB64 != "" {
+	if serverReq.Body != "" && serverReq.BodyB64 != nil {
 		serverResp.Error = "Both `body` and `body_b64` cannot be set"
 		return serverResp
 	}
@@ -125,14 +126,9 @@ func (c *SessionController) executeRequestWithSession(session *azuretls.Session,
 	}
 
 	// Handle base64 encoded body
-	if serverReq.BodyB64 != "" {
-		bodyBytes, err := base64.StdEncoding.DecodeString(serverReq.BodyB64)
-		if err != nil {
-			serverResp.Error = fmt.Sprintf("Failed to decode base64 body: %v", err)
-			return serverResp
-		}
-		azureReq.Body = bodyBytes
-	} else {
+	if serverReq.BodyB64 != nil {
+		azureReq.Body = serverReq.BodyB64
+	} else if serverReq.Body != "" {
 		azureReq.Body = serverReq.Body
 	}
 
@@ -304,10 +300,22 @@ func (c *SessionController) GetIP(sessionID string) (string, error) {
 // GetHealthInfo returns health information including session count
 func (c *SessionController) GetHealthInfo() map[string]any {
 	sessions := c.ListSessions()
+
+	azuretlsVersion := "unknown"
+	if info, ok := debug.ReadBuildInfo(); ok {
+		for _, dep := range info.Deps {
+			if dep.Path == "github.com/Noooste/azuretls-client" {
+				azuretlsVersion = dep.Version
+				break
+			}
+		}
+	}
+
 	return map[string]any{
-		"status":    "healthy",
-		"sessions":  len(sessions),
-		"timestamp": time.Now().UTC(),
-		"version":   "1.0.0",
+		"status":           "healthy",
+		"sessions":         len(sessions),
+		"timestamp":        time.Now().UTC(),
+		"version":          "v0.0.0",
+		"azuretls_version": azuretlsVersion,
 	}
 }

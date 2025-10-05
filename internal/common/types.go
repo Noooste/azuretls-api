@@ -13,8 +13,8 @@ type ServerRequest struct {
 	URL            string           `json:"url"`
 	Headers        utils.OrderedMap `json:"headers,omitempty"`
 	OrderedHeaders [][]string       `json:"ordered_headers,omitempty"`
-	Body           []byte           `json:"body,omitempty"`
-	BodyB64        string           `json:"body_b64,omitempty"` // Base64 encoded binary body
+	Body           string           `json:"body,omitempty"`
+	BodyB64        []byte           `json:"body_b64,omitempty"`
 	Options        RequestOptions   `json:"options,omitempty"`
 }
 
