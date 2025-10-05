@@ -1,1 +1,0 @@
-go run ./ --auth TOKEN_TEST

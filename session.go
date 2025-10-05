@@ -1,155 +1,252 @@
-package main
+package api
 
 import (
-	"github.com/Noooste/fhttp/cookiejar"
-	"golang.org/x/sync/syncmap"
-	"runtime"
-	"runtime/debug"
+	"fmt"
+	"net/url"
 	"sync"
 	"time"
+
+	"github.com/Noooste/azuretls-api/common"
+	"github.com/Noooste/azuretls-client"
 )
 
-var Sessions = &SessionStruct{
-	list: &syncmap.Map{},
+type DefaultSessionManager struct {
+	sessions map[string]*azuretls.Session
+	mu       sync.RWMutex
 }
 
-type SessionStruct struct {
-	list *syncmap.Map
+func (sm *DefaultSessionManager) ApplyJA3(sessionID, ja3, navigator string) error {
+	sm.mu.RLock()
+	session, exists := sm.sessions[sessionID]
+	sm.mu.RUnlock()
+
+	if !exists {
+		return fmt.Errorf("session with ID %s not found", sessionID)
+	}
+
+	return session.ApplyJa3(ja3, navigator)
 }
 
-func (s *SessionStruct) Get(sid uint64, lock bool) (Session, bool) {
-	if value, ok := s.list.Load(sid); ok {
-		session := value.(Session)
-		if lock {
-			session.mu.Lock()
-			v, _ := s.list.Load(sid)
-			tmp := v.(Session)
-			tmp.locked = true
-			return tmp, true
+func (sm *DefaultSessionManager) ApplyHTTP2(sessionID, fingerprint string) error {
+	sm.mu.RLock()
+	session, exists := sm.sessions[sessionID]
+	sm.mu.RUnlock()
+
+	if !exists {
+		return fmt.Errorf("session with ID %s not found", sessionID)
+	}
+
+	return session.ApplyHTTP2(fingerprint)
+}
+
+func (sm *DefaultSessionManager) ApplyHTTP3(sessionID, fingerprint string) error {
+	sm.mu.RLock()
+	session, exists := sm.sessions[sessionID]
+	sm.mu.RUnlock()
+
+	if !exists {
+		return fmt.Errorf("session with ID %s not found", sessionID)
+	}
+
+	return session.ApplyHTTP3(fingerprint)
+}
+
+func (sm *DefaultSessionManager) SetProxy(sessionID, proxy string) error {
+	sm.mu.RLock()
+	session, exists := sm.sessions[sessionID]
+	sm.mu.RUnlock()
+
+	if !exists {
+		return fmt.Errorf("session with ID %s not found", sessionID)
+	}
+
+	return session.SetProxy(proxy)
+}
+
+func (sm *DefaultSessionManager) ClearProxy(sessionID string) error {
+	sm.mu.RLock()
+	session, exists := sm.sessions[sessionID]
+	sm.mu.RUnlock()
+
+	if !exists {
+		return fmt.Errorf("session with ID %s not found", sessionID)
+	}
+
+	session.ClearProxy()
+	return nil
+}
+
+func (sm *DefaultSessionManager) AddPins(sessionID, urlStr string, pins []string) error {
+	sm.mu.RLock()
+	session, exists := sm.sessions[sessionID]
+	sm.mu.RUnlock()
+
+	if !exists {
+		return fmt.Errorf("session with ID %s not found", sessionID)
+	}
+
+	parsedURL, err := url.Parse(urlStr)
+	if err != nil {
+		return fmt.Errorf("invalid URL: %w", err)
+	}
+
+	return session.AddPins(parsedURL, pins)
+}
+
+func (sm *DefaultSessionManager) ClearPins(sessionID, urlStr string) error {
+	sm.mu.RLock()
+	session, exists := sm.sessions[sessionID]
+	sm.mu.RUnlock()
+
+	if !exists {
+		return fmt.Errorf("session with ID %s not found", sessionID)
+	}
+
+	parsedURL, err := url.Parse(urlStr)
+	if err != nil {
+		return fmt.Errorf("invalid URL: %w", err)
+	}
+
+	return session.ClearPins(parsedURL)
+}
+
+func (sm *DefaultSessionManager) GetIP(sessionID string) (string, error) {
+	sm.mu.RLock()
+	session, exists := sm.sessions[sessionID]
+	sm.mu.RUnlock()
+
+	if !exists {
+		return "", fmt.Errorf("session with ID %s not found", sessionID)
+	}
+
+	return session.Ip()
+}
+
+func NewSessionManager() *DefaultSessionManager {
+	return &DefaultSessionManager{
+		sessions: make(map[string]*azuretls.Session),
+	}
+}
+
+func (sm *DefaultSessionManager) CreateSession(sessionID string) (*azuretls.Session, error) {
+	sm.mu.Lock()
+	defer sm.mu.Unlock()
+
+	if sessionID == "" {
+		sessionID = common.GenerateSessionID()
+	}
+
+	if _, exists := sm.sessions[sessionID]; exists {
+		return nil, fmt.Errorf("session with ID %s already exists", sessionID)
+	}
+
+	session := azuretls.NewSession()
+	sm.sessions[sessionID] = session
+
+	return session, nil
+}
+
+func (sm *DefaultSessionManager) GetSession(sessionID string) (*azuretls.Session, bool) {
+	sm.mu.RLock()
+	defer sm.mu.RUnlock()
+
+	session, exists := sm.sessions[sessionID]
+	return session, exists
+}
+
+func (sm *DefaultSessionManager) DeleteSession(sessionID string) error {
+	sm.mu.Lock()
+	defer sm.mu.Unlock()
+
+	session, exists := sm.sessions[sessionID]
+	if !exists {
+		return fmt.Errorf("session with ID %s not found", sessionID)
+	}
+
+	session.Close()
+	delete(sm.sessions, sessionID)
+
+	return nil
+}
+
+func (sm *DefaultSessionManager) ListSessions() []string {
+	sm.mu.RLock()
+	defer sm.mu.RUnlock()
+
+	sessionIDs := make([]string, 0, len(sm.sessions))
+	for id := range sm.sessions {
+		sessionIDs = append(sessionIDs, id)
+	}
+
+	return sessionIDs
+}
+
+func (sm *DefaultSessionManager) CleanupSessions() error {
+	sm.mu.Lock()
+	defer sm.mu.Unlock()
+
+	for id, session := range sm.sessions {
+		session.Close()
+		delete(sm.sessions, id)
+	}
+
+	return nil
+}
+
+func (sm *DefaultSessionManager) CreateSessionWithConfig(sessionID string, config *common.SessionConfig) (*azuretls.Session, error) {
+	sm.mu.Lock()
+	defer sm.mu.Unlock()
+
+	if sessionID == "" {
+		sessionID = common.GenerateSessionID()
+	}
+
+	if _, exists := sm.sessions[sessionID]; exists {
+		return nil, fmt.Errorf("session with ID %s already exists", sessionID)
+	}
+
+	session := azuretls.NewSession()
+
+	// Apply configuration if provided
+	if config != nil {
+		if config.Browser != "" {
+			session.Browser = config.Browser
 		}
-		return session, true
-	}
-	return Session{}, false
-}
-
-func (s *SessionStruct) Set(sid uint64, session Session) {
-	if session.locked {
-		session.locked = false
-		session.mu.Unlock()
-	}
-	s.list.Store(sid, session)
-}
-
-func (s *SessionStruct) Remove(sid uint64) {
-	s.list.Delete(sid)
-	runtime.GC()
-}
-
-func initSession() uint64 {
-	for {
-		newSessionID := getRandomId()
-		if _, ok := Sessions.Get(newSessionID, false); !ok {
-			jar, _ := cookiejar.New(nil)
-			now := time.Now()
-			newContext := Session{
-				Id:           newSessionID,
-				AllContext:   []*Context{},
-				Cookies:      jar,
-				mu:           &sync.Mutex{},
-				LastActivity: &now,
+		if config.UserAgent != "" {
+			session.UserAgent = config.UserAgent
+		}
+		if config.Proxy != "" {
+			if err := session.SetProxy(config.Proxy); err != nil {
+				return nil, fmt.Errorf("failed to set proxy: %w", err)
 			}
-			Sessions.Set(newSessionID, newContext)
-			return newSessionID
 		}
-	}
-}
+		if config.TimeoutMs > 0 {
+			session.SetTimeout(time.Duration(config.TimeoutMs) * time.Millisecond)
+		}
+		if config.MaxRedirects > 0 {
+			session.MaxRedirects = config.MaxRedirects
+		}
+		session.InsecureSkipVerify = config.InsecureSkipVerify
 
-/*
-Get specific Session at index id and with matching domain
-*/
-func getContext(id uint64, host string) *Context {
-	session, _ := Sessions.Get(id, false)
-	contexts := session.AllContext
-	for _, el := range contexts {
-		if host == el.Host {
-			return el
+		if len(config.OrderedHeaders) > 0 {
+			session.OrderedHeaders = make(azuretls.OrderedHeaders, len(config.OrderedHeaders))
+			for i, header := range config.OrderedHeaders {
+				session.OrderedHeaders[i] = header
+			}
 		}
-		if el.TLSConnection != nil {
-			if err := el.TLSConnection.VerifyHostname(host); err == nil {
-				return el
+
+		if len(config.Headers) > 0 {
+			for k, v := range config.Headers {
+				session.Header.Set(k, v)
 			}
 		}
 	}
-	context := &Context{
-		Id:   id,
-		Host: host,
-	}
-	return context
+
+	sm.sessions[sessionID] = session
+	return session, nil
 }
 
-/*
-Update context list with given Session context
-*/
-func (s Session) update(c *Context) {
-	var done bool
-	var index int
-
-	for i, el := range s.AllContext {
-		if c.Host == el.Host {
-			index = i
-			done = true
-			break
-		}
-	}
-
-	now := time.Now()
-	if !done {
-		s.AllContext = append(s.AllContext, c)
-	} else {
-		s.AllContext[index] = c
-	}
-
-	tmp, _ := Sessions.Get(s.Id, true)
-	tmp.LastActivity = &now
-	tmp.AllContext = s.AllContext
-	Sessions.Set(c.Id, tmp)
-}
-
-func sessionExists(id uint64) bool {
-	_, ok := Sessions.Get(id, false)
-	return ok
-}
-
-func clearMemory() {
-	for {
-		runtime.GC()
-		time.Sleep(10 * time.Second)
-	}
-}
-
-func monitorSessions() {
-	defer func() {
-		if r := recover(); r != nil {
-			debug.PrintStack()
-			time.Sleep(5 * time.Second)
-			monitorSessions()
-		}
-	}()
-
-	for {
-		removeId := make([]uint64, 0)
-		Sessions.list.Range(func(key any, value any) bool {
-			pool := value.(Session)
-			if pool.LastActivity.Add(time.Duration(inactivityTimer) * time.Second).Before(time.Now()) {
-				removeId = append(removeId, key.(uint64))
-			}
-			return true
-		})
-
-		for _, id := range removeId {
-			Sessions.Remove(id)
-		}
-
-		time.Sleep(50 * time.Millisecond)
-	}
+// GenerateSessionID is deprecated, use common.GenerateSessionID instead
+func GenerateSessionID() string {
+	return common.GenerateSessionID()
 }
