@@ -4,20 +4,26 @@ The AzureTLS Server provides HTTP/REST and WebSocket APIs for making HTTP reques
 
 ## Quick Start
 
-### 1. Start the Server
+### 1. Install
+
+```bash
+go install github.com/Noooste/azuretls-api@latest
+```
+
+### 2. Start the Server
 
 ```bash
 # Default configuration (localhost:8080)
-go run cmd/server/main.go
+azuretls
 
 # Custom host and port
-go run cmd/server/main.go -host=0.0.0.0 -port=8080
+azuretls -host=0.0.0.0 -port=8080
 
 # Custom configuration with limits
-go run cmd/server/main.go -host=0.0.0.0 -port=8080 -max_sessions=500 -max_concurrent_requests=50 -read_timeout=60 -write_timeout=60
+azuretls -host=0.0.0.0 -port=8080 -max_sessions=500 -max_concurrent_requests=50 -read_timeout=60 -write_timeout=60
 ```
 
-### 2. Make Your First Request
+### 3. Make Your First Request
 
 ```bash
 # Create a session
@@ -469,7 +475,7 @@ For WebSocket connections:
 
 ### Server Won't Start
 - Check if port is already in use: `netstat -an | grep :8080`
-- Try different port: `go run cmd/server/main.go -port=8081`
+- Try different port: `azuretls -port=8081`
 
 ### Session Not Found
 - Verify session was created successfully
@@ -497,7 +503,7 @@ For WebSocket connections:
 
 ```bash
 # Start server in one terminal
-go run cmd/server/main.go
+azuretls
 
 # Run examples in another terminal
 cd examples/server
@@ -506,14 +512,18 @@ go run websocket.go
 go run advanced.go
 ```
 
-### Building
+### Building from Source
 
 ```bash
-# Build server binary
-go build -o azuretls-server cmd/server/main.go
+# Clone the repository
+git clone https://github.com/Noooste/azuretls-api.git
+cd azuretls-api
 
-# Run built binary
-./azuretls-server -host=0.0.0.0 -port=8080
+# Install locally
+go install
+
+# Run
+azuretls -host=0.0.0.0 -port=8080
 ```
 
 This server provides a language-agnostic way to use AzureTLS functionality, making it easy to integrate advanced HTTP client features into any application stack.
