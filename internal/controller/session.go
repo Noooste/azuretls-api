@@ -3,8 +3,8 @@ package controller
 import (
 	"encoding/base64"
 	"fmt"
+	"github.com/Noooste/azuretls-api/internal/utils"
 	"net/http"
-	"runtime/debug"
 	"time"
 
 	"github.com/Noooste/azuretls-api/internal/common"
@@ -301,21 +301,10 @@ func (c *SessionController) GetIP(sessionID string) (string, error) {
 func (c *SessionController) GetHealthInfo() map[string]any {
 	sessions := c.ListSessions()
 
-	azuretlsVersion := "unknown"
-	if info, ok := debug.ReadBuildInfo(); ok {
-		for _, dep := range info.Deps {
-			if dep.Path == "github.com/Noooste/azuretls-client" {
-				azuretlsVersion = dep.Version
-				break
-			}
-		}
-	}
-
 	return map[string]any{
 		"status":           "healthy",
 		"sessions":         len(sessions),
 		"timestamp":        time.Now().UTC(),
-		"version":          "v0.0.0",
-		"azuretls_version": azuretlsVersion,
+		"azuretls_version": utils.GetAzureTLSVersion(),
 	}
 }
